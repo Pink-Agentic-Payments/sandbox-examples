@@ -1,0 +1,14 @@
+{
+  "name": "pink-agentic-payments-mcp-example",
+  "version": "1.0.0",
+  "description": "Minimal MCP client example for the Pink Agentic AI Payments sandbox",
+  "type": "module",
+  "main": "index.mjs",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.31.0"
+  }
+}

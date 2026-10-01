@@ -1,0 +1,1139 @@
+openapi: 3.1.0
+info:
+  title: Pink Agentic AI Payments — Sandbox API
+  version: "1.0.0"
+  summary: Sandbox-only REST API for the approval layer between AI agents and company money.
+  description: |
+    **Sandbox only. Test credentials, no real money moves, production is not yet available.**
+
+    Pink Agentic AI Payments (by PinkWallet, early access) is the approval layer between
+    AI agents and company money: plain-language rules, per-agent budgets and human
+    approvals decide each payment before a one-time virtual card or bank transfer is issued.
+
+    This spec documents the live public sandbox at `https://agentic-sandbox.pinkwallet.com`.
+    Every operation below was called against that live sandbox and the examples are real
+    (redacted) response bodies captured on 2026-10-01. The same functionality is also exposed
+    as an MCP (Model Context Protocol) server at `/mcp` — see
+    https://github.com/Pink-Agentic-Payments/sandbox-examples for MCP + REST client examples.
+
+    ### Getting a key
+    `POST /v1/sandbox/workspaces` needs no auth and returns one admin key plus one agent
+    key per seeded agent. Agent keys look like `pk_sandbox_agent_<workspace>_<agent>_<rand>`;
+    the admin key looks like `pk_sandbox_admin_<workspace>_<rand>`. Both are bearer tokens —
+    send `Authorization: Bearer <key>`.
+
+    ### Decisions
+    `POST /v1/payments` returns one of three decisions, each with a different HTTP status:
+    `allowed` → `201` (a one-time sandbox credential is issued immediately), `pending_human`
+    → `202` (a human must approve in `/console` or via `POST /v1/admin/requests/{id}/approve`),
+    `blocked` → `403` (no credential, ever, for this request).
+  contact:
+    name: Pink Agentic AI Payments — developer docs
+    url: https://pinkwallet.com/agentic/developers/
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: https://agentic-sandbox.pinkwallet.com
+    description: Public sandbox (the only environment that exists today; production is not available)
+
+security: []
+
+tags:
+  - name: Sandbox
+    description: Create a disposable test workspace (no auth).
+  - name: Agent
+    description: Operations an AI agent calls with its own `pk_sandbox_agent_…` key.
+  - name: Admin
+    description: Operations a human admin calls with the workspace's `pk_sandbox_admin_…` key.
+
+paths:
+  /v1/sandbox/workspaces:
+    post:
+      tags: [Sandbox]
+      operationId: createSandboxWorkspace
+      summary: Create a sandbox workspace (no auth)
+      description: |
+        Seeds a new workspace from a template (`coffee`, `startup`, or `ecommerce`; unknown
+        values fall back to `coffee`) and returns the admin key and one agent key per seeded
+        agent. Keys are shown once in this response (and again in `/console?key=<admin_key>`).
+        No authentication is required to call this endpoint — it is the sandbox's signup flow.
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                company:
+                  type: string
+                  description: Workspace / company display name. Defaults to "My company".
+                  example: OpenAPI Contract Test Co
+                email:
+                  type: string
+                  description: Optional, not verified in the sandbox.
+                template:
+                  type: string
+                  enum: [coffee, startup, ecommerce]
+                  default: coffee
+              example:
+                company: OpenAPI Contract Test Co
+                template: coffee
+      # x-note: no documented 4xx — malformed JSON bodies return 500 "body must be JSON"
+      # (verified live on 2026-10-01: `curl -d '{bad json'` -> 500), which is a sandbox
+      # quirk, not an undocumented-by-choice 4xx. Left as-is rather than inventing one.
+      responses:
+        "201":
+          description: Workspace created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceCreated"
+              example:
+                workspace_id: jl43vgtf3j
+                name: OpenAPI Contract Test Co
+                template: coffee
+                currency: USD
+                policy_version: 1
+                created_at: "2026-10-01T21:02:53.722Z"
+                admin_key: pk_sandbox_admin_jl43vgtf3j_********
+                agents:
+                  - id: a_purch
+                    name: Purchasing AI
+                    key: pk_sandbox_agent_jl43vgtf3j_a_purch_********
+                    vault: v_ops
+                    monthly_budget: 4000
+                    per_payment_cap: 500
+                  - id: a_inv
+                    name: Inventory AI
+                    key: pk_sandbox_agent_jl43vgtf3j_a_inv_********
+                    vault: v_ops
+                    monthly_budget: 2500
+                    per_payment_cap: 300
+                  - id: a_mkt
+                    name: Marketing AI
+                    key: pk_sandbox_agent_jl43vgtf3j_a_mkt_********
+                    vault: v_mkt
+                    monthly_budget: 3000
+                    per_payment_cap: 300
+                  - id: a_pay
+                    name: Payroll & Bills AI
+                    key: pk_sandbox_agent_jl43vgtf3j_a_pay_********
+                    vault: v_pay
+                    monthly_budget: 32000
+                    per_payment_cap: 15000
+                payees: [p_cc, p_sysco, p_uline, p_oatly, p_meta, p_gusto, p_energy, p_square]
+                rules: 11
+                urls:
+                  console: https://agentic-sandbox.pinkwallet.com/console?key=pk_sandbox_admin_...
+                  mcp: https://agentic-sandbox.pinkwallet.com/mcp
+                  rest: https://agentic-sandbox.pinkwallet.com/v1
+                slug: openapi-contract-test-co
+                note: "Sandbox only. Credentials are test values; no money moves. Keys are shown once here and again in the console."
+        "500":
+          description: "Malformed request body (verified live: a non-JSON body returns 500, not 400)."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example: { error: "body must be JSON" }
+
+  /v1/me:
+    get:
+      tags: [Agent]
+      operationId: getAgentIdentity
+      summary: Who am I (agent identity + workspace summary)
+      security: [{ agentKey: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentIdentity"
+              example:
+                workspace_id: jl43vgtf3j
+                name: OpenAPI Contract Test Co
+                template: coffee
+                currency: USD
+                policy_version: 1
+                created_at: "2026-10-01T21:02:53.722Z"
+                agent:
+                  id: a_purch
+                  name: Purchasing AI
+                  department: Kitchen
+                  vault: v_ops
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/budget:
+    get:
+      tags: [Agent]
+      operationId: getBudget
+      summary: Get this agent's budget, spend-to-date and vault balance
+      security: [{ agentKey: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Budget"
+              example:
+                agent: Purchasing AI
+                status: active
+                monthly_budget: 4000
+                spent_this_month: 2260
+                left_this_month: 1740
+                spent_today: 0
+                single_payment_cap: 500
+                vault:
+                  id: v_ops
+                  name: Operating
+                  balances: { USD: 18420.55 }
+                company_daily_ceiling: 6000
+                company_spent_today: 0
+                policy_version: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/payees:
+    get:
+      tags: [Agent]
+      operationId: listPayees
+      summary: List payees visible to this agent
+      security: [{ agentKey: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payees:
+                    type: array
+                    items: { $ref: "#/components/schemas/Payee" }
+              example:
+                payees:
+                  - id: p_cc
+                    name: Counter Culture Coffee
+                    category: supplier
+                    paid_by: bank
+                    country: US
+                    currency: USD
+                    note: "Beans · net 15"
+                  - id: p_sysco
+                    name: Sysco
+                    category: supplier
+                    paid_by: card
+                    country: US
+                    currency: USD
+                    note: "Milk, syrups, food"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/vaults:
+    get:
+      tags: [Agent]
+      operationId: listVaults
+      summary: List the vault(s) this agent can spend from
+      security: [{ agentKey: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vaults:
+                    type: array
+                    items: { $ref: "#/components/schemas/Vault" }
+              example:
+                vaults:
+                  - id: v_ops
+                    name: Operating
+                    purpose: Day-to-day supplies and bills
+                    balances: { USD: 18420.55 }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/rules:
+    get:
+      tags: [Agent]
+      operationId: listRules
+      summary: List the policy rules that apply to this agent
+      security: [{ agentKey: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items: { $ref: "#/components/schemas/RuleView" }
+              example:
+                rules:
+                  - id: r11
+                    name: "Never: gift cards, cash-like, crypto"
+                    agents: "*"
+                    payee: "cat:blocked"
+                    amount: { min: 0, max: null, window: tx }
+                    action: block
+                  - id: r4
+                    name: Small supply orders go through
+                    agents: [a_purch, a_inv]
+                    payee: approved
+                    amount: { min: 0, max: 500, window: tx }
+                    action: allow
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/payments/check:
+    post:
+      tags: [Agent]
+      operationId: checkPayment
+      summary: Dry-run a payment against policy (no spend, no side effects)
+      security: [{ agentKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentInput" }
+            example: { payee_id: p_cc, amount: 420, purpose: beans }
+      responses:
+        "200":
+          description: OK — decision is prefixed `would_` because nothing was spent.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckResult" }
+              example:
+                decision: would_allow
+                reason: Small supply orders go through
+                rule:
+                  id: r4
+                  name: Small supply orders go through
+                  agents: [a_purch, a_inv]
+                  payee: approved
+                  amount: { min: 0, max: 500, window: tx }
+                  action: allow
+                policy_version: 1
+                trace:
+                  - "PASS · Agent registered · Purchasing AI"
+                  - "PASS · Agent active · not paused"
+                  - "PASS · Monthly budget · $2,680 of $4,000 after this"
+                  - "PASS · Daily ceiling, all agents · $420 of $6,000"
+                  - "PASS · Vault balance · Operating · $18,420.55 available"
+                  - "SKIP · Never: gift cards, cash-like, crypto · payee out of scope"
+                  - "PASS · Small supply orders go through · matched · allow"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/payments:
+    post:
+      tags: [Agent]
+      operationId: requestPayment
+      summary: Request a payment (evaluated against policy; may spend immediately, hold for a human, or block)
+      description: |
+        Returns `201` + a one-time sandbox credential when the policy engine decision is
+        `allowed`; `202` + a `hold_id` to poll when the decision is `pending_human`
+        (needs a human approval); `403` with `credential: null` when `blocked`.
+
+        Idempotency: pass `idempotency_key` in the body **or** an `Idempotency-Key` header.
+        Replaying the same key for the same agent returns the original decision unchanged
+        with `"replayed": true`, at the same status code the first call got.
+      security: [{ agentKey: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: Alternative to `idempotency_key` in the request body.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentInput" }
+            example:
+              payee_id: p_cc
+              amount: 420
+              purpose: 20 kg espresso beans
+              reason: "bin at 18%"
+              idempotency_key: contract-test-1
+      responses:
+        "201":
+          description: Allowed — a one-time sandbox credential was issued and the spend was recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentResult" }
+              example:
+                payment_id: pay_e30e798f2466
+                decision: allowed
+                agent: Purchasing AI
+                payee: Counter Culture Coffee
+                payee_id: p_cc
+                amount: 420
+                currency: USD
+                purpose: 20 kg espresso beans
+                rule: Small supply orders go through
+                policy_version: 1
+                created_at: "2026-10-01T21:02:54.535Z"
+                credential:
+                  type: bank_transfer
+                  sandbox: true
+                  max_amount: 420
+                  currency: USD
+                  locked_to: Counter Culture Coffee
+                  single_use: true
+                  expires_at: "2026-10-01T21:17:54.535Z"
+                  transfer: { rail: ACH, reference: PWS-18FA9FC7, status: submitted }
+        "202":
+          description: Pending human approval — poll `GET /v1/payments/{id}` or `pink.get_credential` over MCP.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentResult" }
+              example:
+                payment_id: pay_1757bdd8acba
+                decision: pending_human
+                agent: Purchasing AI
+                payee: Sysco
+                payee_id: p_sysco
+                amount: 890
+                currency: USD
+                purpose: weekly milk and syrups
+                rule: "Bigger supply orders: store manager checks"
+                policy_version: 1
+                created_at: "2026-10-01T21:02:55.051Z"
+                hold_id: pay_1757bdd8acba
+                approvers_needed: 1
+                approvals_so_far: 0
+                who: Luis Ortega (Store manager)
+                expires_at: "2026-10-01T21:32:55.051Z"
+                poll: "pink.get_credential(hold_id) · or GET /v1/payments/{id}"
+        "400":
+          description: Bad request (e.g. amount is not a positive number).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Blocked by policy — no credential, this request will never be allowed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentResult" }
+              example:
+                payment_id: pay_0608581ece47
+                decision: blocked
+                agent: Purchasing AI
+                payee: giftcards.com
+                payee_id: null
+                amount: 50
+                currency: USD
+                purpose: prizes
+                rule: "Never: gift cards, cash-like, crypto"
+                policy_version: 1
+                created_at: "2026-10-01T21:02:55.203Z"
+                credential: null
+                retry_after: null
+                why: "matched · block"
+
+  /v1/payments/{id}:
+    get:
+      tags: [Agent]
+      operationId: getPayment
+      summary: Get a payment/hold by id (only visible to the agent that created it)
+      security: [{ agentKey: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentResult" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/payments/{id}/receipt:
+    post:
+      tags: [Agent]
+      operationId: reportReceipt
+      summary: Attach a receipt to a payment (raises the agent's trust score)
+      security: [{ agentKey: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: "\"Either `{ receipt: {...} }` or the receipt object directly as the body.\""
+              example:
+                receipt: { merchant: Counter Culture, total: 420, reference: INV-1 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  payment_id: { type: string }
+                  trust_score: { type: number }
+              example: { ok: true, payment_id: pay_e30e798f2466, trust_score: 96 }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/admin/state:
+    get:
+      tags: [Admin]
+      operationId: getAdminState
+      summary: Full workspace state — people, groups, vaults, agents, payees, rules, breakers, pending holds, recent transactions
+      security: [{ adminKey: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminState" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/WrongKeyType"
+
+  /v1/admin/workspace:
+    get:
+      tags: [Admin]
+      operationId: getAdminWorkspace
+      summary: Workspace summary including the admin key and all agent keys
+      security: [{ adminKey: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkspaceCreated" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/WrongKeyType"
+
+  /v1/admin/requests/{id}/approve:
+    post:
+      tags: [Admin]
+      operationId: approveRequest
+      summary: Approve a pending_human payment request (issues the credential)
+      security: [{ adminKey: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                by: { type: string, description: "Approver display name. Defaults to \"Sandbox admin\"." }
+            example: {}
+      responses:
+        "200":
+          description: OK. If the request was not `pending_human` (e.g. already decided), the current state is returned unchanged.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentResult" }
+        "404":
+          description: "Either the payment id doesn't exist, or an agent key was used on this admin-only route (verified live: agent key → 404 \"unknown route for an agent key\")."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              examples:
+                not_found: { value: { error: "not found" } }
+                wrong_key_type: { value: { error: "unknown route for an agent key" } }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/admin/requests/{id}/decline:
+    post:
+      tags: [Admin]
+      operationId: declineRequest
+      summary: Decline a pending_human payment request
+      security: [{ adminKey: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                by: { type: string }
+            example: {}
+      responses:
+        "200":
+          description: OK. If the request was not `pending_human`, the current state is returned unchanged.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentResult" }
+        "404":
+          description: "Either the payment id doesn't exist, or an agent key was used on this admin-only route (verified live: agent key → 404 \"unknown route for an agent key\")."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              examples:
+                not_found: { value: { error: "not found" } }
+                wrong_key_type: { value: { error: "unknown route for an agent key" } }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/admin/rules:
+    put:
+      tags: [Admin]
+      operationId: replaceRules
+      summary: Replace the entire rule set (bumps policy_version)
+      description: |
+        Not independently live-tested in this contract-test pass (to stay within a
+        2-workspace budget) — behavior below is taken from source
+        (`src/workspace.ts::putRules`) and the founder's own end-to-end smoke test
+        (`test/smoke.mjs`), which exercises this exact call and asserts the version bump.
+      security: [{ adminKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rules]
+              properties:
+                rules:
+                  type: array
+                  items: { $ref: "#/components/schemas/Rule" }
+                by: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policy_version: { type: integer }
+                  rules: { type: integer }
+              example: { policy_version: 2, rules: 12 }
+        "400":
+          description: Each rule needs id, name, action and window; action must be allow\|ask\|block; action=ask needs approvers.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/WrongKeyType"
+
+  /v1/admin/agents/{id}:
+    patch:
+      tags: [Admin]
+      operationId: patchAgent
+      summary: Update an agent's status, monthly budget or per-payment cap
+      security: [{ adminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          example: a_purch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [active, paused] }
+                monthly: { type: number }
+                perPay: { type: number }
+              example: { status: active }
+      responses:
+        "200":
+          description: OK — returns the raw internal agent record (field names are internal, e.g. `perPay`/`spentMonth`/`dept`, not the `per_payment_cap`/`spent_this_month`/`department` names used elsewhere; this is a known inconsistency in the sandbox, not a documentation error).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentInternal" }
+        "404":
+          description: "Either the agent id doesn't exist, or an agent key was used on this admin-only route (verified live: agent key → 404 \"unknown route for an agent key\")."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              examples:
+                not_found: { value: { error: "not found" } }
+                wrong_key_type: { value: { error: "unknown route for an agent key" } }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/admin/reset-day:
+    post:
+      tags: [Admin]
+      operationId: resetDay
+      summary: Reset every agent's spent_today to 0
+      security: [{ adminKey: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { ok: { type: boolean } }
+              example: { ok: true }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/WrongKeyType"
+
+  /v1/admin/reset:
+    post:
+      tags: [Admin]
+      operationId: resetWorkspace
+      summary: Reset the whole workspace back to its template (keeps the same keys)
+      description: |
+        Not independently live-tested in this contract-test pass (destructive and
+        redundant with workspace creation within the 2-workspace budget) — behavior
+        below is taken from source (`src/workspace.ts::resetAll`).
+      security: [{ adminKey: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  policy_version: { type: integer }
+              example: { ok: true, policy_version: 2 }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/WrongKeyType"
+
+components:
+  securitySchemes:
+    agentKey:
+      type: http
+      scheme: bearer
+      bearerFormat: pk_sandbox_agent_<workspace>_<agent>_<rand>
+      description: "Agent key returned by `POST /v1/sandbox/workspaces`. Send as `Authorization: Bearer <key>`."
+    adminKey:
+      type: http
+      scheme: bearer
+      bearerFormat: pk_sandbox_admin_<workspace>_<rand>
+      description: "Admin key returned by `POST /v1/sandbox/workspaces`. Send as `Authorization: Bearer <key>`."
+
+  parameters:
+    PaymentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+      example: pay_e30e798f2466
+
+  responses:
+    Unauthorized:
+      description: Missing/unknown key.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: "Unauthorized: send Authorization: Bearer <key>" }
+    NotFound:
+      description: Not found.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: "not found" }
+    WrongKeyType:
+      description: "An agent key was used on an admin-only route. Verified live: this returns 404 (not 401/403) because the agent-key branch has no handler for /v1/admin/* and falls through to the generic \"unknown route\" 404 — see src/index.ts."
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: "unknown route for an agent key" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+      required: [error]
+
+    AgentSummary:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        key: { type: string }
+        vault: { type: string }
+        monthly_budget: { type: number }
+        per_payment_cap: { type: number }
+
+    WorkspaceCreated:
+      type: object
+      properties:
+        workspace_id: { type: string }
+        name: { type: string }
+        template: { type: string }
+        currency: { type: string }
+        policy_version: { type: integer }
+        created_at: { type: string, format: date-time }
+        admin_key: { type: string }
+        agents:
+          type: array
+          items: { $ref: "#/components/schemas/AgentSummary" }
+        payees:
+          type: array
+          items: { type: string }
+        rules: { type: integer, description: "Rule count." }
+        urls:
+          type: object
+          properties:
+            console: { type: string }
+            mcp: { type: string }
+            mcp_with_key:
+              type: array
+              items:
+                type: object
+                properties: { agent: { type: string }, url: { type: string } }
+            rest: { type: string }
+        slug: { type: string }
+        note: { type: string }
+      required: [workspace_id, admin_key, agents]
+
+    AgentIdentity:
+      type: object
+      properties:
+        workspace_id: { type: string }
+        name: { type: string }
+        template: { type: string }
+        currency: { type: string }
+        policy_version: { type: integer }
+        created_at: { type: string, format: date-time }
+        agent:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            department: { type: string }
+            vault: { type: string }
+
+    Budget:
+      type: object
+      properties:
+        agent: { type: string }
+        status: { type: string, enum: [active, paused] }
+        monthly_budget: { type: number }
+        spent_this_month: { type: number }
+        left_this_month: { type: number }
+        spent_today: { type: number }
+        single_payment_cap: { type: number }
+        vault:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            balances: { type: object, additionalProperties: { type: number } }
+        company_daily_ceiling: { type: number }
+        company_spent_today: { type: number }
+        policy_version: { type: integer }
+
+    Payee:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        category: { type: string }
+        paid_by: { type: string, enum: [bank, card, platform] }
+        country: { type: string }
+        currency: { type: string }
+        note: { type: string }
+        risk_flags:
+          type: array
+          items: { type: string }
+
+    Vault:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        purpose: { type: string }
+        balances: { type: object, additionalProperties: { type: number } }
+
+    RuleAmount:
+      type: object
+      properties:
+        min: { type: number }
+        max: { type: ["number", "null"] }
+        window: { type: string, enum: [tx, day, month] }
+
+    RuleView:
+      type: object
+      description: Agent-facing read view of a rule (see Rule for the admin/write shape).
+      properties:
+        id: { type: string }
+        name: { type: string }
+        agents:
+          oneOf:
+            - { type: string, const: "*" }
+            - { type: array, items: { type: string } }
+        payee:
+          description: "'any' | 'approved' | 'new' | 'cat:<category>' | an explicit array of payee ids."
+          oneOf:
+            - { type: string }
+            - { type: array, items: { type: string } }
+        amount: { $ref: "#/components/schemas/RuleAmount" }
+        requires: { type: string }
+        absent: { type: string }
+        currency: { type: string }
+        outside_hours:
+          type: array
+          items: { type: integer }
+          minItems: 2
+          maxItems: 2
+        action: { type: string, enum: [allow, ask, block] }
+        approvers:
+          type: object
+          properties:
+            people: { type: array, items: { type: string } }
+            group: { type: string }
+            n: { type: integer }
+            label: { type: string }
+
+    Rule:
+      type: object
+      description: Admin/write shape used by PUT /v1/admin/rules (note camelCase field names, unlike RuleView).
+      required: [id, name, action, window]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        note: { type: string }
+        agents:
+          oneOf:
+            - { type: string, const: "*" }
+            - { type: array, items: { type: string } }
+        payee:
+          description: "'any' | 'approved' | 'new' | 'cat:<category>' | an explicit array of payee ids."
+          oneOf:
+            - { type: string }
+            - { type: array, items: { type: string } }
+        min: { type: number }
+        max: { type: ["number", "null"] }
+        window: { type: string, enum: [tx, day, month] }
+        action: { type: string, enum: [allow, ask, block] }
+        approvers:
+          type: object
+          properties:
+            people: { type: array, items: { type: string } }
+            group: { type: string }
+            n: { type: integer }
+        requires: { type: string }
+        absent: { type: string }
+        currency: { type: string }
+        outsideHours:
+          type: array
+          items: { type: integer }
+
+    PaymentInput:
+      type: object
+      required: [amount]
+      description: Either payee_id or payee_name must resolve to a known payee for an "approved" rule to match; unresolved payees are treated as a new/unknown payee.
+      properties:
+        payee_id: { type: string }
+        payee_name: { type: string }
+        amount: { type: number, exclusiveMinimum: 0 }
+        currency: { type: string, default: USD }
+        purpose: { type: string }
+        reason: { type: string }
+        evidence:
+          type: array
+          items: { type: string }
+        evidence_flags:
+          type: array
+          items: { type: string }
+          description: "Flags like po, sow, ticket, scan, statement, brief, renewal, dupInvoice, payeeChanged, repeatCustomer, deposit — see src/types.ts Flag."
+        idempotency_key: { type: string }
+        local_hour:
+          type: integer
+          description: Override the hour-of-day used by outside_hours rules (0-23), for reproducible testing.
+
+    CheckResult:
+      type: object
+      properties:
+        decision: { type: string, enum: [would_allow, would_ask, would_block] }
+        reason: { type: string }
+        rule:
+          oneOf:
+            - { $ref: "#/components/schemas/RuleView" }
+            - type: "null"
+        approvers: { type: string }
+        policy_version: { type: integer }
+        trace:
+          type: array
+          items: { type: string }
+
+    PaymentResult:
+      type: object
+      description: |
+        Shape returned by requestPayment/getPayment/approveRequest/declineRequest. Fields
+        present depend on `decision`: pending_human adds hold_id/approvers_needed/who/expires_at/poll;
+        allowed/approved add credential/approved_by; blocked adds credential:null/why; declined adds declined_by.
+      properties:
+        payment_id: { type: string }
+        decision: { type: string, enum: [allowed, pending_human, blocked, approved, declined, expired] }
+        agent: { type: string }
+        payee: { type: string }
+        payee_id: { type: ["string", "null"] }
+        amount: { type: number }
+        currency: { type: string }
+        purpose: { type: string }
+        rule: { type: string }
+        policy_version: { type: integer }
+        created_at: { type: string, format: date-time }
+        replayed: { type: boolean }
+        credential:
+          oneOf:
+            - { $ref: "#/components/schemas/Credential" }
+            - { type: "null" }
+        approved_by: { type: array, items: { type: string } }
+        hold_id: { type: string }
+        approvers_needed: { type: integer }
+        approvals_so_far: { type: integer }
+        who: { type: string }
+        expires_at: { type: string, format: date-time }
+        poll: { type: string }
+        retry_after: { type: ["string", "null"] }
+        why: { type: string }
+        declined_by: { type: array, items: { type: string } }
+      required: [payment_id, decision]
+
+    Credential:
+      type: object
+      properties:
+        type: { type: string, enum: [virtual_card, bank_transfer, platform_refund] }
+        sandbox: { type: boolean, const: true }
+        max_amount: { type: number }
+        currency: { type: string }
+        locked_to: { type: string }
+        single_use: { type: boolean, const: true }
+        expires_at: { type: string, format: date-time }
+        card:
+          type: object
+          properties:
+            pan: { type: string }
+            exp: { type: string }
+            cvv: { type: string }
+            name: { type: string }
+        transfer:
+          type: object
+          properties:
+            rail: { type: string }
+            reference: { type: string }
+            status: { type: string, const: submitted }
+        platform:
+          type: object
+          properties:
+            name: { type: string }
+            reference: { type: string }
+
+    AgentInternal:
+      type: object
+      description: Raw internal agent record, as returned (unfiltered) by PATCH /v1/admin/agents/{id}.
+      properties:
+        id: { type: string }
+        name: { type: string }
+        dept: { type: string }
+        vault: { type: string }
+        owner: { type: string }
+        monthly: { type: number }
+        perPay: { type: number }
+        spentMonth: { type: number }
+        spentToday: { type: number }
+        status: { type: string, enum: [active, paused] }
+        trust: { type: number }
+        key: { type: string }
+        desc: { type: string }
+
+    AdminState:
+      type: object
+      properties:
+        workspace:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            template: { type: string }
+            created_at: { type: string, format: date-time }
+            policy_version:
+              type: object
+              properties: { n: { type: integer }, by: { type: string }, at: { type: string } }
+            history:
+              type: array
+              items:
+                type: object
+                properties:
+                  v: { type: integer }
+                  by: { type: string }
+                  at: { type: string }
+                  what: { type: string }
+        people:
+          type: array
+          items:
+            type: object
+            properties: { id: { type: string }, name: { type: string }, role: { type: string } }
+        groups:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+              members: { type: array, items: { type: string } }
+              quorum: { type: integer }
+        vaults:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+              purpose: { type: string }
+              bal: { type: object, additionalProperties: { type: number } }
+              agents: { type: array, items: { type: string } }
+        agents:
+          type: array
+          items: { $ref: "#/components/schemas/AgentInternal" }
+        payees:
+          type: array
+          items: { $ref: "#/components/schemas/Payee" }
+        rules:
+          type: array
+          items: { $ref: "#/components/schemas/RuleView" }
+        breakers:
+          type: object
+          properties:
+            dailyCeiling: { type: number }
+            velocity: { type: number }
+            unregistered: { type: boolean }
+        pending:
+          type: array
+          items: { $ref: "#/components/schemas/PaymentResult" }
+        transactions:
+          type: array
+          items: { $ref: "#/components/schemas/PaymentResult" }

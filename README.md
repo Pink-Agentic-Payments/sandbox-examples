@@ -51,6 +51,7 @@ This server works as a remote MCP server (Streamable HTTP). See [`llms-install.m
 | [`02-node-mcp/`](02-node-mcp) | Connects over MCP (Streamable HTTP) with the official `@modelcontextprotocol/sdk`, lists tools, calls `pink.check_policy` + `pink.request_payment` | `PINK_AGENT_KEY=... node index.mjs` |
 | [`03-python-rest/`](03-python-rest) | Same flow over plain REST using only Python's standard library (`urllib`); checks, pays, and polls a pending payment | `PINK_AGENT_KEY=... python3 pay.py` |
 | [`04-agent-loop/`](04-agent-loop) | ~60-line loop that buys 3 things: one small order (allowed), one bigger order (pending human approval), one to a blocked category (blocked) | `PINK_AGENT_KEY=... node agent-loop.mjs` |
+| [`openapi/`](openapi) | OpenAPI 3.1 spec for the REST API, live-validated against the sandbox; import into Postman or a ChatGPT custom GPT Action | `npx -y @redocly/cli lint openapi/openapi.yaml` |
 
 Each example needs an agent key for the **coffee** template (`a_purch`, `a_inv`, `a_mkt`, or `a_pay` — see `01-curl/quickstart.sh` to create a workspace and get one).
 

@@ -23,6 +23,26 @@ export PINK_AGENT_KEY=pk_sandbox_agent_...
 ./01-curl/quickstart.sh
 ```
 
+## Use with Cline
+
+This server works as a remote MCP server (Streamable HTTP). See [`llms-install.md`](llms-install.md) for the full autonomous setup (create a sandbox workspace, get a key, verify the connection). The Cline config ([remote MCP server format](https://docs.cline.bot/mcp/configuring-mcp-servers)) is:
+
+```json
+{
+  "mcpServers": {
+    "pink-agentic-payments-sandbox": {
+      "type": "streamableHttp",
+      "url": "https://agentic-sandbox.pinkwallet.com/mcp",
+      "headers": {
+        "Authorization": "Bearer pk_sandbox_agent_REPLACE_ME"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
 ## Examples
 
 | Example | What it does | Command |

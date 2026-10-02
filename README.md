@@ -53,6 +53,7 @@ This server works as a remote MCP server (Streamable HTTP). See [`llms-install.m
 | [`04-agent-loop/`](04-agent-loop) | ~60-line loop that buys 3 things: one small order (allowed), one bigger order (pending human approval), one to a blocked category (blocked) | `PINK_AGENT_KEY=... node agent-loop.mjs` |
 | [`05-langgraph/`](05-langgraph) | A [LangGraph](https://github.com/langchain-ai/langgraph) ReAct agent + `langchain-mcp-adapters`, 3 scenarios (allowed / pending_human / blocked) incl. a prompt-injection probe that gets blocked server-side | `PINK_AGENT_KEY=... GEMINI_API_KEY=... python3 05-langgraph/react_agent.py` |
 | [`06-openai-agents-sdk/`](06-openai-agents-sdk) | An [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) agent + `MCPServerStreamableHttp`, same 3 scenarios, OpenAI-first with a Gemini/LiteLLM fallback | `PINK_AGENT_KEY=... OPENAI_API_KEY=... python3 06-openai-agents-sdk/agent.py` |
+| [`07-haystack/`](07-haystack) | A [Haystack](https://github.com/deepset-ai/haystack) `Agent` + the official `mcp-haystack` `MCPToolset`, same 3 scenarios, Gemini chat generator | `PINK_AGENT_KEY=... GEMINI_API_KEY=... python3 07-haystack/agent.py` |
 | [`openapi/`](openapi) | OpenAPI 3.1 spec for the REST API, live-validated against the sandbox; import into Postman or a ChatGPT custom GPT Action | `npx -y @redocly/cli lint openapi/openapi.yaml` |
 
 Each example needs an agent key for the **coffee** template (`a_purch`, `a_inv`, `a_mkt`, or `a_pay` — see `01-curl/quickstart.sh` to create a workspace and get one).

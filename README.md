@@ -143,6 +143,7 @@ $ PINK_AGENT_KEY=pk_sandbox_agent_hoa8… node agent-loop.mjs
 
 ## Docs & registry
 
+- Open guide: [agentic-ai-payments](https://github.com/Pink-Agentic-Payments/agentic-ai-payments) — protocols, providers, and spending controls, with these examples linked as the framework-integration section
 - Developer docs: https://pinkwallet.com/agentic/developers/
 - MCP Registry: `com.pinkwallet/agentic-payments-sandbox`
 - Public sandbox: https://agentic-sandbox.pinkwallet.com

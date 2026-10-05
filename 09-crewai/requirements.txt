@@ -1,0 +1,3 @@
+crewai[google-genai]==1.15.23
+crewai-tools==1.15.23
+mcpadapt==0.1.20

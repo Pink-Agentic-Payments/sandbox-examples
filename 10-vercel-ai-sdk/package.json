@@ -1,0 +1,18 @@
+{
+  "name": "pink-agentic-payments-vercel-ai-sdk-example",
+  "version": "1.0.0",
+  "description": "Vercel AI SDK example for the Pink Agentic AI Payments sandbox",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "agent": "node ai-agent.mjs",
+    "direct": "node direct-tools.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@ai-sdk/google": "4.0.87",
+    "@ai-sdk/mcp": "2.0.66",
+    "ai": "7.0.127",
+    "zod": "4.6.5"
+  }
+}

@@ -1,12 +1,12 @@
-# Pink Agentic AI Payments — sandbox examples
+# Pink Agentic AI Payments: sandbox examples
 
 **Pink Agentic AI Payments** (by PinkWallet, early access) is the approval layer between AI agents and company money: plain-language rules, per-agent budgets and human approvals decide each payment before a one-time card or bank transfer is issued.
 
 **Sandbox only: test credentials, no money moves, production not available.**
 
-This repo has four tiny, runnable clients against the live public sandbox at **https://agentic-sandbox.pinkwallet.com** — curl, the official MCP SDK (Node), plain REST (Python stdlib), and a small agent loop that shows all three outcomes an agent can get: `allowed`, `pending_human`, `blocked`.
+This repo has four tiny, runnable clients against the live public sandbox at **https://agentic-sandbox.pinkwallet.com**: curl, the official MCP SDK (Node), plain REST (Python stdlib), and a small agent loop that shows all three outcomes an agent can get: `allowed`, `pending_human`, `blocked`.
 
-> The sandbox's "coffee shop" template includes a night-time rule (23:00–06:00 local → ask the owner). That means the decision for the exact same payment can change depending on when you run it. Every example below passes `local_hour` explicitly so the outputs are reproducible — but they still **print** the decision instead of assuming it, which is the point: policy is evaluated per request, not hardcoded.
+> The sandbox's "coffee shop" template includes a night-time rule (23:00–06:00 local → ask the owner). That means the decision for the exact same payment can change depending on when you run it. Every example below passes `local_hour` explicitly so the outputs are reproducible, but they still **print** the decision instead of assuming it, which is the point: policy is evaluated per request, not hardcoded.
 
 ## Quickstart (2 minutes)
 
@@ -54,13 +54,14 @@ This server works as a remote MCP server (Streamable HTTP). See [`llms-install.m
 | [`05-langgraph/`](05-langgraph) | A [LangGraph](https://github.com/langchain-ai/langgraph) ReAct agent + `langchain-mcp-adapters`, 3 scenarios (allowed / pending_human / blocked) incl. a prompt-injection probe that gets blocked server-side | `PINK_AGENT_KEY=... GEMINI_API_KEY=... python3 05-langgraph/react_agent.py` |
 | [`06-openai-agents-sdk/`](06-openai-agents-sdk) | An [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) agent + `MCPServerStreamableHttp`, same 3 scenarios, OpenAI-first with a Gemini/LiteLLM fallback | `PINK_AGENT_KEY=... OPENAI_API_KEY=... python3 06-openai-agents-sdk/agent.py` |
 | [`07-haystack/`](07-haystack) | A [Haystack](https://github.com/deepset-ai/haystack) `Agent` + the official `mcp-haystack` `MCPToolset`, same 3 scenarios, Gemini chat generator | `PINK_AGENT_KEY=... GEMINI_API_KEY=... python3 07-haystack/agent.py` |
+| [`08-race-test/`](08-race-test) | Fires 40 parallel `$7` payments at a single agent's `$200/day` rule and counts allowed vs. blocked, to check the policy engine holds up under concurrent load | `./08-race-test/race_test.sh` |
 | [`09-crewai/`](09-crewai) | A [CrewAI](https://github.com/crewAIInc/crewAI) `Agent` + `crewai-tools`' `MCPServerAdapter`, same 3 scenarios, Gemini chat model | `PINK_AGENT_KEY=... GEMINI_API_KEY=... python3 09-crewai/crewai_agent.py` |
 | [`10-vercel-ai-sdk/`](10-vercel-ai-sdk) | A [Vercel AI SDK](https://github.com/vercel/ai) `generateText` tool loop + `@ai-sdk/mcp`'s `createMCPClient`, same 3 scenarios, Gemini via `@ai-sdk/google` | `PINK_AGENT_KEY=... GEMINI_API_KEY=... npm --prefix 10-vercel-ai-sdk run agent` |
 | [`openapi/`](openapi) | OpenAPI 3.1 spec for the REST API, live-validated against the sandbox; import into Postman or a ChatGPT custom GPT Action | `npx -y @redocly/cli lint openapi/openapi.yaml` |
 
-Each example needs an agent key for the **coffee** template (`a_purch`, `a_inv`, `a_mkt`, or `a_pay` — see `01-curl/quickstart.sh` to create a workspace and get one).
+Each example needs an agent key for the **coffee** template (`a_purch`, `a_inv`, `a_mkt`, or `a_pay`: see `01-curl/quickstart.sh` to create a workspace and get one).
 
-### 1. curl — real run, 2026-10-01
+### 1. curl: real run, 2026-10-01
 
 ```
 $ ./quickstart.sh
@@ -90,7 +91,7 @@ $ ./quickstart.sh
 }
 ```
 
-### 2. Node MCP SDK — real run, 2026-10-01
+### 2. Node MCP SDK: real run, 2026-10-01
 
 ```
 $ PINK_AGENT_KEY=pk_sandbox_agent_hoa8… node index.mjs
@@ -109,7 +110,7 @@ pink.get_budget, pink.list_payees, pink.list_rules, pink.check_policy, pink.requ
 }
 ```
 
-### 3. Python REST (stdlib only) — real run, 2026-10-01
+### 3. Python REST (stdlib only): real run, 2026-10-01
 
 ```
 $ PINK_AGENT_KEY=pk_sandbox_agent_hoa8… python3 pay.py
@@ -132,20 +133,20 @@ attempt 1: 200 pending_human
 attempt 2: 200 pending_human
 attempt 3: 200 pending_human
 ```
-(It stays `pending_human` until a person approves it in the console — that's the point of the approval layer.)
+(It stays `pending_human` until a person approves it in the console: that's the point of the approval layer.)
 
-### 4. Agent loop — real run, 2026-10-01
+### 4. Agent loop: real run, 2026-10-01
 
 ```
 $ PINK_AGENT_KEY=pk_sandbox_agent_hoa8… node agent-loop.mjs
-[allowed] p_sysco $80 — Small supply orders go through
-[pending_human] p_uline $900 — Bigger supply orders: store manager checks
-[blocked] Quick Gift Cards LLC $50 — Never: gift cards, cash-like, crypto
+[allowed] p_sysco $80: Small supply orders go through
+[pending_human] p_uline $900: Bigger supply orders: store manager checks
+[blocked] Quick Gift Cards LLC $50: Never: gift cards, cash-like, crypto
 ```
 
 ## Docs & registry
 
-- Open guide: [agentic-ai-payments](https://github.com/Pink-Agentic-Payments/agentic-ai-payments) — protocols, providers, and spending controls, with these examples linked as the framework-integration section
+- Open guide: [agentic-ai-payments](https://github.com/Pink-Agentic-Payments/agentic-ai-payments): protocols, providers, and spending controls, with these examples linked as the framework-integration section
 - Developer docs: https://pinkwallet.com/agentic/developers/
 - MCP Registry: `com.pinkwallet/agentic-payments-sandbox`
 - Public sandbox: https://agentic-sandbox.pinkwallet.com

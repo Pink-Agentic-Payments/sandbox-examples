@@ -59,6 +59,7 @@ This server works as a remote MCP server (Streamable HTTP). See [`llms-install.m
 | [`08-race-test/`](08-race-test) | Fires 40 parallel `$7` payments at a single agent's `$200/day` rule and counts allowed vs. blocked, to check the policy engine holds up under concurrent load | `./08-race-test/race_test.sh` |
 | [`09-crewai/`](09-crewai) | A [CrewAI](https://github.com/crewAIInc/crewAI) `Agent` + `crewai-tools`' `MCPServerAdapter`, same 3 scenarios, Gemini chat model | `PINK_AGENT_KEY=... GEMINI_API_KEY=... python3 09-crewai/crewai_agent.py` |
 | [`10-vercel-ai-sdk/`](10-vercel-ai-sdk) | A [Vercel AI SDK](https://github.com/vercel/ai) `generateText` tool loop + `@ai-sdk/mcp`'s `createMCPClient`, same 3 scenarios, Gemini via `@ai-sdk/google` | `PINK_AGENT_KEY=... GEMINI_API_KEY=... npm --prefix 10-vercel-ai-sdk run agent` |
+| [`11-shared-ceiling-test/`](11-shared-ceiling-test) | Fires 40 concurrent payments from 3 different agents at once against one shared $6,000 company daily ceiling, and checks the server's own ledger matches the client-side allowed total | `python3 11-shared-ceiling-test/shared_ceiling_test.py` |
 | [`openapi/`](openapi) | OpenAPI 3.1 spec for the REST API, live-validated against the sandbox; import into Postman or a ChatGPT custom GPT Action | `npx -y @redocly/cli lint openapi/openapi.yaml` |
 
 Each example needs an agent key for the **coffee** template (`a_purch`, `a_inv`, `a_mkt`, or `a_pay`: see `01-curl/quickstart.sh` to create a workspace and get one).

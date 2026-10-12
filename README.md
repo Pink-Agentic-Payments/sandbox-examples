@@ -8,6 +8,19 @@
 
 This repo has four tiny, runnable clients against the live public sandbox at **https://agentic-sandbox.pinkwallet.com**: curl, the official MCP SDK (Node), plain REST (Python stdlib), and a small agent loop that shows all three outcomes an agent can get: `allowed`, `pending_human`, `blocked`.
 
+## Install Pink
+
+| What | Install | Repo |
+|---|---|---|
+| JS/TS client | `npm install pink-agentic-payments` | [pink-agentic-payments-js](https://github.com/Pink-Agentic-Payments/pink-agentic-payments-js) |
+| Python client | PyPI pending → `pip install git+https://github.com/Pink-Agentic-Payments/pink-agentic-payments-python` | [pink-agentic-payments-python](https://github.com/Pink-Agentic-Payments/pink-agentic-payments-python) |
+| MCP server (stdio, any MCP client) | `npx -y pink-agentic-payments-mcp` (env `PINK_AGENT_API_KEY`) | [pink-agentic-payments-mcp](https://github.com/Pink-Agentic-Payments/pink-agentic-payments-mcp) |
+| Vercel AI SDK tools | `npm install pink-agentic-payments-ai-sdk ai zod` | [pink-agentic-payments-ai-sdk](https://github.com/Pink-Agentic-Payments/pink-agentic-payments-ai-sdk) |
+| LangChain / LangGraph tools | PyPI pending → git install, see repo README | [langchain-pink](https://github.com/Pink-Agentic-Payments/langchain-pink) |
+| n8n community node | n8n: Settings → Community Nodes → `n8n-nodes-pink` | [n8n-nodes-pink](https://github.com/Pink-Agentic-Payments/n8n-nodes-pink) |
+
+Remote MCP endpoint: `https://agentic-sandbox.pinkwallet.com/mcp` · Docs: https://pinkwallet.com/agentic/developers/ · Sandbox (test money, no signup): https://agentic-sandbox.pinkwallet.com
+
 > The sandbox's "coffee shop" template includes a night-time rule (23:00–06:00 local → ask the owner). That means the decision for the exact same payment can change depending on when you run it. Every example below passes `local_hour` explicitly so the outputs are reproducible, but they still **print** the decision instead of assuming it, which is the point: policy is evaluated per request, not hardcoded.
 
 ## Quickstart (2 minutes)

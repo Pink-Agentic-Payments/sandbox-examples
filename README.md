@@ -1,10 +1,10 @@
 # Pink Agentic AI Payments: sandbox examples
 
-**Pink Agentic AI Payments** (by PinkWallet, early access) is the approval layer between AI agents and company money: plain-language rules, per-agent budgets and human approvals decide each payment before a one-time card or bank transfer is issued.
+**Pink Agentic AI Payments** (by PinkWallet, early access) is the approval layer between AI agents and company money: plain-language rules, per-agent budgets and human approvals decide each payment before it is made.
 
 > **New:** can you make an AI agent overspend? Try our open challenge against the sandbox (test money only): [overspend-challenge](https://github.com/Pink-Agentic-Payments/overspend-challenge)
 
-**Sandbox only: test credentials, no money moves, production not available.**
+**These examples use the sandbox: test credentials, no money moves.** Production is a separate decision-only pilot (Pink decides, your own Stripe, card or bank pays) at $99/month: https://pinkwallet.com/agentic/pilot/?utm_source=github&utm_medium=readme&utm_campaign=sandbox-examples
 
 This repo has four tiny, runnable clients against the live public sandbox at **https://agentic-sandbox.pinkwallet.com**: curl, the official MCP SDK (Node), plain REST (Python stdlib), and a small agent loop that shows all three outcomes an agent can get: `allowed`, `pending_human`, `blocked`.
 
